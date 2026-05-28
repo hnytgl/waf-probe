@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "waf-probe"
+version = "0.1.0"
+description = "A defensive CLI tool for checking whether a WAF is active and which rule categories appear to be enforced."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "hnytgl" }]
+dependencies = [
+  "requests>=2.31.0",
+]
+
+[project.scripts]
+waf-probe = "waf_probe.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
