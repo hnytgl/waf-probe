@@ -1,135 +1,134 @@
 # waf-probe
 
-`waf-probe` is a defensive WAF rule probe. It sends low-volume, non-destructive
-test strings to a target you own or are authorized to test, then compares each
-probe with a baseline response to estimate whether a WAF, CDN, reverse proxy, or
-security gateway is active.
+`waf-probe` 是一个防御用途的 WAF 规则探测工具。它会向你拥有或已获得授权的目标发送低频、无破坏性的探测字符串，并把每次探测响应和基线响应进行对比，用来判断 WAF、CDN、反向代理或安全网关是否可能正在生效。
 
-It does not exploit vulnerabilities, bypass protections, brute-force paths, or
-run load tests.
+工具不会执行漏洞利用、不会绕过防护、不会爆破目录，也不会做压力测试。
 
-## Features
+## 功能
 
-- Baseline comparison for status code, response length, response markers, and
-  request errors.
-- Table and JSON output.
-- Probe locations:
-  - Query parameter
-  - POST/PUT/PATCH body field
+- 基线响应对比：状态码、响应长度、WAF 拦截关键词、请求异常。
+- 支持表格输出和 JSON 输出。
+- 支持多种探测位置：
+  - Query 参数
+  - POST/PUT/PATCH Body 字段
   - Header
   - Cookie
   - User-Agent
-  - URL path
-- Broad rule coverage, including common and less common categories:
-  - SQL injection
+  - URL 路径
+- 覆盖常见和不常见的 WAF 规则类别：
+  - SQL 注入
   - XSS
-  - Path traversal
-  - Command injection
-  - Template injection
+  - 路径穿越
+  - 命令注入
+  - 模板注入
   - SSRF
-  - NoSQL injection
-  - LDAP injection
-  - XPath injection
+  - NoSQL 注入
+  - LDAP 注入
+  - XPath 注入
   - XXE
-  - GraphQL introspection and batching
-  - CRLF/header splitting
-  - Open redirect
-  - Deserialization signatures
-  - JWT abuse signatures
-  - Prototype pollution
-  - Remote/local file include signatures
-  - Scanner User-Agent fingerprints
-  - Suspicious upload filenames
-  - Sensitive file paths
-  - Backup file paths
-  - Admin directory paths
-  - API documentation paths
-  - Framework debug paths
-  - Log file paths
+  - GraphQL introspection 和批量查询
+  - CRLF/Header Splitting
+  - 开放重定向
+  - 反序列化特征
+  - JWT 滥用特征
+  - 原型污染
+  - 远程/本地文件包含特征
+  - 扫描器 User-Agent 指纹
+  - 可疑上传文件名
+  - 敏感文件路径
+  - 备份文件路径
+  - 后台管理目录
+  - API 文档路径
+  - 框架调试路径
+  - 日志文件路径
 
-## Install
+## 安装
 
 ```bash
 python -m pip install .
 ```
 
-Editable development install:
+开发模式安装：
 
 ```bash
 python -m pip install -e .
 ```
 
-## Usage
+## 使用方法
 
-Probe a query parameter:
+探测 Query 参数：
 
 ```bash
 waf-probe https://example.com/search --param q
 ```
 
-Probe a POST form field:
+探测 POST 表单字段：
 
 ```bash
 waf-probe https://example.com/login --method POST --location body --param username
 ```
 
-Probe a custom header:
+探测自定义 Header：
 
 ```bash
 waf-probe https://example.com/ --location header --param X-Waf-Probe
 ```
 
-Probe User-Agent rules:
+探测 User-Agent 规则：
 
 ```bash
 waf-probe https://example.com/ --location user-agent --categories scanner
 ```
 
-Probe sensitive file and directory path rules:
+探测敏感文件和目录路径规则：
 
 ```bash
 waf-probe https://example.com/ --location path --categories sensitive-file,backup-file,admin-path,api-docs,framework-debug,log-file
 ```
 
-Output JSON:
+输出 JSON：
 
 ```bash
 waf-probe https://example.com/search --param q --json
 ```
 
-Use a small delay between probes:
+在探测请求之间增加延时：
 
 ```bash
 waf-probe https://example.com/search --param q --delay 0.5
 ```
 
-## Rule Categories
+## 规则类别
 
-Show all available categories:
+可以通过传入一个不存在的类别查看当前支持的类别列表：
 
 ```bash
 waf-probe https://example.com/ --categories does-not-exist
 ```
 
-The command will print the valid category list. You can then run a subset:
+然后按需选择部分类别：
 
 ```bash
 waf-probe https://example.com/search --param q --categories sqli,xss,graphql,xxe
 ```
 
-## Verdicts
+常用目录/文件类探测：
 
-Each probe is classified as:
+```bash
+waf-probe https://example.com/ --location path --categories sensitive-file,backup-file,admin-path
+```
 
-- `blocked`: Strong blocking signal, such as a blocking HTTP status, WAF marker,
-  request timeout, or connection reset.
-- `suspicious`: The response changed meaningfully compared with baseline.
-- `passed`: No obvious blocking signal was observed.
+## 判定逻辑
 
-Common blocking status codes include `401`, `403`, `406`, `418`, `429`, `451`,
-`501`, and `503`.
+每条探测结果会被标记为：
 
-## Example Output
+- `blocked`：强拦截信号，例如拦截状态码、WAF 页面关键词、请求超时、连接重置等。
+- `suspicious`：响应相比基线出现明显变化，可能是软拦截、挑战页或网关改写。
+- `passed`：没有观察到明显拦截信号。
+
+常见拦截状态码包括 `401`、`403`、`406`、`418`、`429`、`451`、`501`、`503`。
+
+## 示例输出
 
 ```text
 Target: https://example.com/search
@@ -143,16 +142,14 @@ path-traversal      dot_dot_etc_passwd       query       passed      200    simi
 sensitive-file      git_config               path        blocked     403    blocking status
 ```
 
-## Exit Codes
+## 退出码
 
-- `0`: The run completed and no obvious blocking signal was observed.
-- `1`: At least one probe was classified as `blocked` or `suspicious`.
-- `2`: Argument error, invalid category, or target access failure.
+- `0`：执行完成，未观察到明显拦截信号。
+- `1`：至少一条探测结果为 `blocked` 或 `suspicious`。
+- `2`：参数错误、类别无效或目标访问失败。
 
-## Notes
+## 注意事项
 
-- Path probing is intentionally simple and low-volume. It appends each selected
-  payload to the supplied base URL and compares the result with the baseline.
-- For production systems, use `--delay` and category filters to keep traffic
-  predictable.
-- Results are signals, not proof. Confirm important findings with your WAF logs.
+- `--location path` 是低频路径规则验证，不是目录爆破。它会把所选类别中的每个路径追加到目标 URL 后面，并和基线响应对比。
+- 在生产环境上测试时，建议使用 `--delay` 和 `--categories` 控制请求量。
+- 探测结果只是信号，不等于最终结论。关键结果建议结合 WAF 日志、CDN 日志或应用网关日志确认。
