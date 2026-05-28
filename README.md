@@ -1,98 +1,158 @@
 # waf-probe
 
-`waf-probe` 是一个防御用途的 WAF 规则探测工具，用来检查目标站点前是否存在 WAF/网关拦截，以及常见规则类别是否可能生效。
+`waf-probe` is a defensive WAF rule probe. It sends low-volume, non-destructive
+test strings to a target you own or are authorized to test, then compares each
+probe with a baseline response to estimate whether a WAF, CDN, reverse proxy, or
+security gateway is active.
 
-> 只对你拥有或被授权测试的目标使用。工具只发送无破坏性的探测字符串，不执行漏洞利用、不绕过 WAF、不做压力测试。
+It does not exploit vulnerabilities, bypass protections, brute-force paths, or
+run load tests.
 
-## 功能
+## Features
 
-- 基线请求对比，判断探测请求是否被 WAF 拦截或改变。
-- 覆盖常见 WAF 规则类别：
-  - SQL 注入特征
-  - XSS 特征
-  - 路径穿越特征
-  - 命令注入特征
-  - 模板注入特征
-  - SSRF 特征
-  - 扫描器 User-Agent 特征
-  - 可疑文件上传扩展名特征
-- 支持探测位置：
-  - Query 参数
-  - POST 表单
+- Baseline comparison for status code, response length, response markers, and
+  request errors.
+- Table and JSON output.
+- Probe locations:
+  - Query parameter
+  - POST/PUT/PATCH body field
   - Header
   - Cookie
-- 支持表格和 JSON 输出。
-- 支持自定义超时、重试、延时和自定义 Header。
+  - User-Agent
+  - URL path
+- Broad rule coverage, including common and less common categories:
+  - SQL injection
+  - XSS
+  - Path traversal
+  - Command injection
+  - Template injection
+  - SSRF
+  - NoSQL injection
+  - LDAP injection
+  - XPath injection
+  - XXE
+  - GraphQL introspection and batching
+  - CRLF/header splitting
+  - Open redirect
+  - Deserialization signatures
+  - JWT abuse signatures
+  - Prototype pollution
+  - Remote/local file include signatures
+  - Scanner User-Agent fingerprints
+  - Suspicious upload filenames
+  - Sensitive file paths
+  - Backup file paths
+  - Admin directory paths
+  - API documentation paths
+  - Framework debug paths
+  - Log file paths
 
-## 安装
+## Install
 
 ```bash
 python -m pip install .
 ```
 
-开发模式：
+Editable development install:
 
 ```bash
 python -m pip install -e .
 ```
 
-## 使用示例
+## Usage
 
-探测 GET 参数：
+Probe a query parameter:
 
 ```bash
 waf-probe https://example.com/search --param q
 ```
 
-探测 POST 表单：
+Probe a POST form field:
 
 ```bash
 waf-probe https://example.com/login --method POST --location body --param username
 ```
 
-探测 Header：
+Probe a custom header:
 
 ```bash
 waf-probe https://example.com/ --location header --param X-Waf-Probe
 ```
 
-输出 JSON：
+Probe User-Agent rules:
+
+```bash
+waf-probe https://example.com/ --location user-agent --categories scanner
+```
+
+Probe sensitive file and directory path rules:
+
+```bash
+waf-probe https://example.com/ --location path --categories sensitive-file,backup-file,admin-path,api-docs,framework-debug,log-file
+```
+
+Output JSON:
 
 ```bash
 waf-probe https://example.com/search --param q --json
 ```
 
-只测试指定类别：
+Use a small delay between probes:
 
 ```bash
-waf-probe https://example.com/search --param q --categories sqli,xss,path-traversal
+waf-probe https://example.com/search --param q --delay 0.5
 ```
 
-## 判定说明
+## Rule Categories
 
-工具会先发送一次基线请求，再逐条发送探测请求。若探测请求出现以下现象，会标记为 `blocked` 或 `suspicious`：
+Show all available categories:
 
-- HTTP 状态码变为 401、403、406、418、429、451、501、503 等常见拦截状态。
-- 响应正文包含常见 WAF/拦截页关键词。
-- 响应长度相比基线变化明显。
-- 请求异常、超时或连接被重置。
+```bash
+waf-probe https://example.com/ --categories does-not-exist
+```
 
-输出中的 `blocked` 表示强拦截特征，`suspicious` 表示可能被改写、挑战或软拦截，`passed` 表示未观察到明显拦截。
+The command will print the valid category list. You can then run a subset:
 
-## 示例输出
+```bash
+waf-probe https://example.com/search --param q --categories sqli,xss,graphql,xxe
+```
+
+## Verdicts
+
+Each probe is classified as:
+
+- `blocked`: Strong blocking signal, such as a blocking HTTP status, WAF marker,
+  request timeout, or connection reset.
+- `suspicious`: The response changed meaningfully compared with baseline.
+- `passed`: No obvious blocking signal was observed.
+
+Common blocking status codes include `401`, `403`, `406`, `418`, `429`, `451`,
+`501`, and `503`.
+
+## Example Output
 
 ```text
 Target: https://example.com/search
 Baseline: 200 12451 bytes 132 ms
 
-Category          Payload                    Location  Status      HTTP  Notes
-sqli             classic_or_true            query     blocked     403   blocking status
-xss              script_tag                  query     blocked     403   blocking status
-path-traversal   dot_dot_etc_passwd          query     passed      200   similar to baseline
+Category            Payload                  Location    Status      HTTP   Notes
+--------------------------------------------------------------------------------------------
+sqli                classic_or_true          query       blocked     403    blocking status
+xss                 script_tag               query       blocked     403    blocking status
+path-traversal      dot_dot_etc_passwd       query       passed      200    similar to baseline
+sensitive-file      git_config               path        blocked     403    blocking status
 ```
 
-## 退出码
+## Exit Codes
 
-- `0`: 执行成功，未发现明显拦截或只发现正常通过。
-- `1`: 至少一个类别出现 `blocked` 或 `suspicious`。
-- `2`: 参数错误或目标无法访问。
+- `0`: The run completed and no obvious blocking signal was observed.
+- `1`: At least one probe was classified as `blocked` or `suspicious`.
+- `2`: Argument error, invalid category, or target access failure.
+
+## Notes
+
+- Path probing is intentionally simple and low-volume. It appends each selected
+  payload to the supplied base URL and compares the result with the baseline.
+- For production systems, use `--delay` and category filters to keep traffic
+  predictable.
+- Results are signals, not proof. Confirm important findings with your WAF logs.

@@ -4,7 +4,7 @@ import json
 import time
 from dataclasses import asdict, dataclass
 from typing import Mapping
-from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 import requests
 
@@ -29,6 +29,15 @@ WAF_MARKERS = (
     "imperva",
     "sucuri",
     "barracuda",
+    "wordfence",
+    "fortinet",
+    "f5",
+    "big-ip",
+    "aws waf",
+    "request blocked",
+    "malicious request",
+    "attack detected",
+    "bot detection",
 )
 
 
@@ -156,6 +165,8 @@ class WafProber:
             cookies = {self.param: value}
         elif self.location == "user-agent":
             headers["User-Agent"] = value
+        elif self.location == "path":
+            url = self.url if payload is None else append_path_probe(self.url, value)
         else:
             raise ValueError(f"unsupported location: {self.location}")
 
@@ -198,6 +209,18 @@ def add_query_param(url: str, key: str, value: str) -> str:
     query = parse_qsl(parts.query, keep_blank_values=True)
     query.append((key, value))
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
+def append_path_probe(url: str, value: str) -> str:
+    parts = urlsplit(url)
+    base_path = parts.path
+    if not base_path.endswith("/"):
+        base_path = f"{base_path}/"
+    encoded_segments = [quote(segment, safe="%") for segment in value.split("/") if segment]
+    path = base_path + "/".join(encoded_segments)
+    if value.endswith("/"):
+        path += "/"
+    return urlunsplit((parts.scheme, parts.netloc, path, parts.query, parts.fragment))
 
 
 def length_changed(baseline: int, current: int) -> bool:

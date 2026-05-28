@@ -23,11 +23,16 @@ def build_parser() -> argparse.ArgumentParser:
         description="Defensively check whether a WAF is active and which rule categories appear enforced.",
     )
     parser.add_argument("url", help="Target URL you own or are authorized to test.")
-    parser.add_argument("--method", default="GET", choices=["GET", "POST"], help="HTTP method to use.")
+    parser.add_argument(
+        "--method",
+        default="GET",
+        choices=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "PROPFIND"],
+        help="HTTP method to use.",
+    )
     parser.add_argument(
         "--location",
         default="query",
-        choices=["query", "body", "header", "cookie", "user-agent"],
+        choices=["query", "body", "header", "cookie", "user-agent", "path"],
         help="Where to place probe payloads.",
     )
     parser.add_argument("--param", default="waf_probe", help="Parameter/header/cookie name for probe payloads.")
