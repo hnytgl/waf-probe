@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from html import escape
+from urllib.parse import quote
 
 
 @dataclass(frozen=True)
@@ -11,7 +13,10 @@ class Payload:
     description: str
 
 
-PAYLOADS: tuple[Payload, ...] = (
+MIN_PAYLOADS_PER_CATEGORY = 50
+
+
+BASE_PAYLOADS: tuple[Payload, ...] = (
     Payload("sqli", "classic_or_true", "' OR '1'='1", "Classic SQL injection signature."),
     Payload("sqli", "classic_or_true_double_quote", '" OR "1"="1', "Double-quote boolean SQL injection signature."),
     Payload("sqli", "classic_or_true_numeric", "1 OR 1=1", "Numeric boolean SQL injection signature."),
@@ -130,6 +135,314 @@ PAYLOADS: tuple[Payload, ...] = (
     Payload("log-file", "error_log", "error.log", "Error log path signature."),
     Payload("log-file", "debug_log", "debug.log", "Debug log path signature."),
 )
+
+
+EXTRA_SEEDS: dict[str, tuple[str, ...]] = {
+    "admin-path": (
+        "administrator/",
+        "admin/login",
+        "admin.php",
+        "backend/",
+        "controlpanel/",
+        "cpanel/",
+        "dashboard/",
+        "manage/",
+        "management/",
+        "operator/",
+        "sysadmin/",
+        "webadmin/",
+    ),
+    "api-docs": (
+        "api-docs",
+        "api/docs",
+        "api/swagger",
+        "docs/api",
+        "redoc",
+        "swagger-ui/",
+        "swagger-ui.html",
+        "swagger/index.html",
+        "v1/swagger.json",
+        "v3/api-docs/swagger-config",
+    ),
+    "backup-file": (
+        "backup.zip",
+        "backup.tar.gz",
+        "db.sql",
+        "dump.sql",
+        "site.tar",
+        "site.tar.gz",
+        "source.zip",
+        "wwwroot.zip",
+        "www.bak",
+        "web.rar",
+    ),
+    "cmd-injection": (
+        "test&&id",
+        "test||id",
+        "test%26%26id",
+        "test%7Cid",
+        "test\nid",
+        "test$(whoami)",
+        "test`whoami`",
+        "test;whoami",
+        "test|whoami",
+        "${IFS}id",
+    ),
+    "crlf-injection": (
+        "test%0aX-Waf-Probe:%201",
+        "test%0dX-Waf-Probe:%201",
+        "test%0d%0aLocation:%20https://example.com/",
+        "test%0d%0aContent-Length:%200",
+        "test%250d%250aX-Waf-Probe:%201",
+        "test\r\nX-Waf-Probe: 1",
+    ),
+    "deserialization": (
+        "ac ed 00 05",
+        "H4sIAAAAAAAA",
+        "O:4:\"Test\":0:{}",
+        "a:1:{s:4:\"test\";s:4:\"waf\";}",
+        '{"@type":"java.lang.AutoCloseable"}',
+        '{"$type":"System.Configuration.Install.AssemblyInstaller"}',
+        "rO0ABXQABHdhZg==",
+    ),
+    "file-upload": (
+        "probe.php",
+        "probe.phtml",
+        "probe.php5",
+        "probe.jspx",
+        "probe.aspx",
+        "probe.ashx",
+        "shell.php;.jpg",
+        "waf_probe.svg",
+        "probe.jpg.php",
+        "probe%00.php",
+    ),
+    "framework-debug": (
+        ".env",
+        "_debugbar/open",
+        "_profiler/phpinfo",
+        "actuator",
+        "actuator/beans",
+        "debug/default/view",
+        "server-status",
+        "telescope/requests",
+        "trace",
+        "vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php",
+    ),
+    "graphql": (
+        "{__typename}",
+        "{__schema{queryType{name}}}",
+        "query IntrospectionQuery{__schema{types{name}}}",
+        '[{"query":"{__typename}"}]',
+        '{"query":"{__schema{types{name}}}"}',
+        "mutation{__typename}",
+    ),
+    "jwt": (
+        "eyJhbGciOiJub25lIn0.e30.",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.invalid",
+        "Bearer eyJhbGciOiJub25lIn0.e30.",
+        '{"alg":"none"}',
+        '{"jku":"http://127.0.0.1/jwks.json"}',
+        '{"kid":"../../../../etc/passwd"}',
+    ),
+    "ldap-injection": (
+        "*",
+        "*)(&(uid=*))",
+        "admin*",
+        ")(uid=*))(|(uid=*",
+        "*)%00",
+        "(cn=*)",
+    ),
+    "log-file": (
+        "app.log",
+        "application.log",
+        "audit.log",
+        "catalina.out",
+        "debug.log",
+        "laravel.log",
+        "nginx/access.log",
+        "nginx/error.log",
+        "server.log",
+        "web.log",
+    ),
+    "nosql": (
+        '{"$gt":""}',
+        '{"$regex":".*"}',
+        '{"username":{"$ne":null}}',
+        '{"password":{"$exists":true}}',
+        "[$ne]=1",
+        "password[$regex]=.*",
+    ),
+    "open-redirect": (
+        "https://example.com/",
+        "http://example.com/",
+        "/\\example.com",
+        "///example.com",
+        "%2f%2fexample.com",
+        "https://example.com%2f",
+    ),
+    "path-traversal": (
+        "../etc/passwd",
+        "....//....//etc/passwd",
+        "..%2f..%2fetc%2fpasswd",
+        "..%5c..%5cwindows%5cwin.ini",
+        "%2e%2e/%2e%2e/%2e%2e/etc/passwd",
+        "/proc/self/environ",
+    ),
+    "prototype-pollution": (
+        "__proto__.polluted=1",
+        "__proto__[toString]=1",
+        "constructor.prototype.polluted=1",
+        "constructor[prototype][toString]=1",
+        '{"__proto__":{"polluted":true}}',
+        '{"constructor":{"prototype":{"polluted":true}}}',
+    ),
+    "rfi-lfi": (
+        "http://127.0.0.1/probe.txt",
+        "https://example.com/probe.txt",
+        "file:///c:/windows/win.ini",
+        "php://input",
+        "data://text/plain,waf_probe",
+        "expect://id",
+    ),
+    "scanner": (
+        "Mozilla/5.0 sqlmap",
+        "masscan/1.3",
+        "Nmap Scripting Engine",
+        "wpscan waf-probe",
+        "dirbuster",
+        "gobuster",
+        "ffuf",
+        "httpx",
+    ),
+    "sensitive-file": (
+        ".env.local",
+        ".env.production",
+        ".git/HEAD",
+        ".npmrc",
+        ".ssh/id_rsa",
+        "config.php",
+        "id_rsa",
+        "secrets.yml",
+        "settings.py",
+        "web.config",
+    ),
+    "ssrf": (
+        "http://localhost/",
+        "http://0.0.0.0/",
+        "http://2130706433/",
+        "http://0177.0.0.1/",
+        "http://metadata.google.internal/",
+        "http://100.100.100.200/latest/meta-data/",
+    ),
+    "template-injection": (
+        "${{7*7}}",
+        "${jndi:ldap://127.0.0.1/a}",
+        "{{config}}",
+        "{{request.application.__globals__}}",
+        "<#assign x=7*7>${x}",
+        "#{7*7}",
+    ),
+    "xpath-injection": (
+        "' or count(/*)>0 or 'a'='b",
+        "' or string-length(name(/*))>0 or 'a'='b",
+        "'] | //* | //foo['",
+        "1 or 1=1",
+        "')) or (('1'='1",
+        "count(//user)",
+    ),
+    "xss": (
+        "<img src=x onerror=alert(1)>",
+        "<body onload=alert(1)>",
+        "<iframe src=javascript:alert(1)>",
+        "<input autofocus onfocus=alert(1)>",
+        "<details open ontoggle=alert(1)>",
+        "%3Cscript%3Ealert(1)%3C/script%3E",
+        "\\u003cscript\\u003ealert(1)\\u003c/script\\u003e",
+    ),
+    "xxe": (
+        '<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///c:/windows/win.ini">]>',
+        '<!DOCTYPE foo [<!ENTITY % xxe SYSTEM "http://127.0.0.1/xxe.dtd">%xxe;]>',
+        '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe "waf">]>',
+        '<!ENTITY xxe SYSTEM "file:///etc/hosts">',
+        '<!DOCTYPE foo SYSTEM "http://127.0.0.1/probe.dtd">',
+    ),
+}
+
+
+def _safe_name(value: str) -> str:
+    cleaned = "".join(char.lower() if char.isalnum() else "_" for char in value)
+    cleaned = "_".join(part for part in cleaned.split("_") if part)
+    return cleaned[:42] or "payload"
+
+
+def _alternating_case(value: str) -> str:
+    output: list[str] = []
+    upper = True
+    for char in value:
+        if char.isalpha():
+            output.append(char.upper() if upper else char.lower())
+            upper = not upper
+        else:
+            output.append(char)
+    return "".join(output)
+
+
+def _variants(value: str) -> tuple[tuple[str, str], ...]:
+    return (
+        ("raw", value),
+        ("upper", value.upper()),
+        ("lower", value.lower()),
+        ("mixed", _alternating_case(value)),
+        ("url", quote(value, safe="")),
+        ("double_url", quote(quote(value, safe=""), safe="")),
+        ("plus_space", value.replace(" ", "+")),
+        ("tab_space", value.replace(" ", "\t")),
+        ("newline_space", value.replace(" ", "\n")),
+        ("comment_space", value.replace(" ", "/**/")),
+        ("json", '{"probe":"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"}'),
+        ("array", "probe[]=" + quote(value, safe="")),
+        ("wrapped", f"waf_probe:{value}:waf_probe"),
+        ("quoted", f"'{value}'"),
+        ("double_quoted", f'"{value}"'),
+        ("html", escape(value)),
+    )
+
+
+def _supplemental_payloads(payloads: tuple[Payload, ...], minimum: int) -> tuple[Payload, ...]:
+    by_category: dict[str, list[Payload]] = {}
+    for payload in payloads:
+        by_category.setdefault(payload.category, []).append(payload)
+
+    generated: list[Payload] = []
+    existing_names = {payload.name for payload in payloads}
+    for category, category_payloads in sorted(by_category.items()):
+        seeds = [payload.value for payload in category_payloads]
+        seeds.extend(EXTRA_SEEDS.get(category, ()))
+
+        seed_index = 0
+        while len(category_payloads) < minimum:
+            seed = seeds[seed_index % len(seeds)]
+            for variant_name, variant_value in _variants(seed):
+                name = f"{_safe_name(category)}_auto_{_safe_name(seed)}_{variant_name}"
+                if name in existing_names:
+                    continue
+                existing_names.add(name)
+                payload = Payload(
+                    category,
+                    name,
+                    variant_value,
+                    f"Generated {category} WAF signature variant based on {seed!r}.",
+                )
+                category_payloads.append(payload)
+                generated.append(payload)
+                if len(category_payloads) >= minimum:
+                    break
+            seed_index += 1
+    return tuple(generated)
+
+
+PAYLOADS: tuple[Payload, ...] = BASE_PAYLOADS + _supplemental_payloads(BASE_PAYLOADS, MIN_PAYLOADS_PER_CATEGORY)
 
 
 def categories() -> list[str]:

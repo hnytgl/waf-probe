@@ -41,6 +41,7 @@
   - API 文档路径
   - 框架调试路径
   - 日志文件路径
+- 每个规则类别不少于 50 条 payload；基础样本会结合编码、大小写、空白、注释、包装等方式生成变形，用于更细致地观察 WAF 规则覆盖能力。
 
 ## 安装
 
@@ -124,7 +125,7 @@ waf-probe https://example.com/search --param q --categories sqli,xss,graphql,xxe
 waf-probe https://example.com/search --param q --categories sqli -v
 ```
 
-SQLi 类包含多种常见变形，用于观察 WAF 对不同编码、注释、大小写、空白、UNION、时间函数和多数据库特征的识别能力，例如：
+每个类别都不少于 50 条 payload。SQLi 类额外包含多种常见变形，用于观察 WAF 对不同编码、注释、大小写、空白、UNION、时间函数和多数据库特征的识别能力，例如：
 
 - 布尔型：`' OR '1'='1`、`1 OR 1=1`
 - 注释型：`--`、`#`、`/*`、`/**/`
@@ -133,6 +134,8 @@ SQLi 类包含多种常见变形，用于观察 WAF 对不同编码、注释、�
 - 时间函数：`SLEEP(1)`、`WAITFOR DELAY`、`pg_sleep(1)`、`DBMS_LOCK.SLEEP(1)`
 - 数据库指纹：`information_schema`、`@@version`、`sqlite_version()`、`dual`
 - JSON/数组参数场景：JSON 字符串、`id[]` 参数形态
+
+全量规则数量较多，建议先用 `--categories` 针对单类或少量类别测试，并在生产环境配合 `--delay` 控制请求频率。
 
 常用目录/文件类探测：
 

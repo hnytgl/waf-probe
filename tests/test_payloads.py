@@ -1,6 +1,6 @@
 import pytest
 
-from waf_probe.payloads import categories, select_payloads
+from waf_probe.payloads import MIN_PAYLOADS_PER_CATEGORY, categories, select_payloads
 
 
 def test_categories_are_available():
@@ -41,7 +41,7 @@ def test_sqli_payloads_have_broad_variants():
     payloads = select_payloads("sqli")
     names = {payload.name for payload in payloads}
 
-    assert len(payloads) >= 35
+    assert len(payloads) >= MIN_PAYLOADS_PER_CATEGORY
     assert {
         "url_encoded_or_true",
         "double_url_encoded_or_true",
@@ -60,3 +60,9 @@ def test_payload_names_are_unique():
     names = [payload.name for payload in payloads]
 
     assert len(names) == len(set(names))
+
+
+def test_every_category_has_minimum_payload_count():
+    for category in categories():
+        payloads = select_payloads(category)
+        assert len(payloads) >= MIN_PAYLOADS_PER_CATEGORY, category
