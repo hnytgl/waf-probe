@@ -118,6 +118,22 @@ waf-probe https://example.com/ --categories does-not-exist
 waf-probe https://example.com/search --param q --categories sqli,xss,graphql,xxe
 ```
 
+单独测试 SQLi 规则能力：
+
+```bash
+waf-probe https://example.com/search --param q --categories sqli -v
+```
+
+SQLi 类包含多种常见变形，用于观察 WAF 对不同编码、注释、大小写、空白、UNION、时间函数和多数据库特征的识别能力，例如：
+
+- 布尔型：`' OR '1'='1`、`1 OR 1=1`
+- 注释型：`--`、`#`、`/*`、`/**/`
+- 编码型：URL 编码、双重 URL 编码、`+` 分隔
+- UNION 型：`UNION SELECT`、`UNION ALL SELECT`、注释拆分、大小写混排
+- 时间函数：`SLEEP(1)`、`WAITFOR DELAY`、`pg_sleep(1)`、`DBMS_LOCK.SLEEP(1)`
+- 数据库指纹：`information_schema`、`@@version`、`sqlite_version()`、`dual`
+- JSON/数组参数场景：JSON 字符串、`id[]` 参数形态
+
 常用目录/文件类探测：
 
 ```bash

@@ -35,3 +35,28 @@ def test_rule_set_has_broad_coverage():
         "xxe",
     }
     assert expected.issubset(set(categories()))
+
+
+def test_sqli_payloads_have_broad_variants():
+    payloads = select_payloads("sqli")
+    names = {payload.name for payload in payloads}
+
+    assert len(payloads) >= 35
+    assert {
+        "url_encoded_or_true",
+        "double_url_encoded_or_true",
+        "comment_split_union",
+        "inline_comment_or",
+        "mysql_if_sleep",
+        "mssql_waitfor",
+        "postgres_sleep",
+        "oracle_dual",
+        "json_quote_or",
+    }.issubset(names)
+
+
+def test_payload_names_are_unique():
+    payloads = select_payloads(None)
+    names = [payload.name for payload in payloads]
+
+    assert len(names) == len(set(names))
