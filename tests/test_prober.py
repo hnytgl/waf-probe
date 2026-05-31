@@ -36,3 +36,18 @@ def test_classify_includes_payload_value():
     assert result.verdict == "passed"
     assert result.payload == "script_tag"
     assert result.payload_value == "<script>alert(1)</script>"
+
+
+def test_run_reports_progress():
+    payload = Payload("xss", "script_tag", "<script>alert(1)</script>", "Script tag XSS signature.")
+    prober = WafProber("https://example.com")
+    sample = HttpSample(status_code=200, length=1000, elapsed_ms=10)
+    messages: list[str] = []
+
+    prober._request = lambda payload_arg: sample
+
+    prober.run([payload], progress=messages.append)
+
+    assert any("baseline request" in message for message in messages)
+    assert any("Probe 1/1" in message for message in messages)
+    assert any("Result 1/1" in message for message in messages)

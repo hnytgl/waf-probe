@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import asdict, dataclass
-from typing import Mapping
+from typing import Callable, Mapping
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 import requests
@@ -112,14 +112,28 @@ class WafProber:
         self.verify_tls = verify_tls
         self.session = requests.Session()
 
-    def run(self, payloads: list[Payload]) -> ProbeReport:
+    def run(self, payloads: list[Payload], progress: Callable[[str], None] | None = None) -> ProbeReport:
+        if progress:
+            progress(f"Sending baseline request to {self.url}")
         baseline = self._request(None)
+        if progress:
+            baseline_status = baseline.status_code if baseline.status_code is not None else "-"
+            progress(f"Baseline complete: HTTP {baseline_status}, {baseline.length} bytes, {baseline.elapsed_ms} ms")
         results = []
-        for payload in payloads:
+        total = len(payloads)
+        for index, payload in enumerate(payloads, start=1):
             if self.delay > 0:
+                if progress:
+                    progress(f"Sleeping {self.delay:g}s before next probe")
                 time.sleep(self.delay)
+            if progress:
+                progress(f"Probe {index}/{total}: {payload.category}/{payload.name} at {self.location}")
             sample = self._request(payload)
-            results.append(self._classify(payload, baseline, sample))
+            result = self._classify(payload, baseline, sample)
+            results.append(result)
+            if progress:
+                status = result.status_code if result.status_code is not None else "-"
+                progress(f"Result {index}/{total}: {result.verdict} HTTP {status} ({result.notes})")
         return ProbeReport(target=self.url, baseline=baseline, results=results)
 
     def _request(self, payload: Payload | None) -> HttpSample:

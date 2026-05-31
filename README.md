@@ -92,6 +92,12 @@ waf-probe https://example.com/ --location path --categories sensitive-file,backu
 waf-probe https://example.com/search --param q --json
 ```
 
+显示动态检测过程：
+
+```bash
+waf-probe https://example.com/search --param q -v
+```
+
 在探测请求之间增加延时：
 
 ```bash

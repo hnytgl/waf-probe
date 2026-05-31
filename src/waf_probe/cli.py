@@ -43,7 +43,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--delay", type=float, default=0.0, help="Delay between probes in seconds.")
     parser.add_argument("--insecure", action="store_true", help="Disable TLS certificate verification.")
     parser.add_argument("--json", action="store_true", help="Print JSON report.")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Show baseline and per-payload probe progress.")
     return parser
+
+
+def log_verbose(enabled: bool, message: str) -> None:
+    if enabled:
+        print(f"[waf-probe] {message}", file=sys.stderr)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -64,7 +70,8 @@ def main(argv: list[str] | None = None) -> int:
             delay=args.delay,
             verify_tls=not args.insecure,
         )
-        report = prober.run(payloads)
+        log_verbose(args.verbose, f"Loaded {len(payloads)} payload(s)")
+        report = prober.run(payloads, progress=lambda message: log_verbose(args.verbose, message))
     except Exception as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
