@@ -134,12 +134,12 @@ waf-probe https://example.com/ --location path --categories sensitive-file,backu
 Target: https://example.com/search
 Baseline: 200 12451 bytes 132 ms
 
-Category            Payload                  Location    Status      HTTP   Notes
---------------------------------------------------------------------------------------------
-sqli                classic_or_true          query       blocked     403    blocking status
-xss                 script_tag               query       blocked     403    blocking status
-path-traversal      dot_dot_etc_passwd       query       passed      200    similar to baseline
-sensitive-file      git_config               path        blocked     403    blocking status
+Category            Payload                  Payload Value                      Location    Status      HTTP   Notes
+--------------------------------------------------------------------------------------------------------------------------------
+sqli                classic_or_true                                             query       blocked     403    blocking status
+xss                 script_tag                                                  query       blocked     403    blocking status
+path-traversal      dot_dot_etc_passwd       ../../../../../etc/passwd          query       passed      200    similar to baseline
+sensitive-file      git_config                                                  path        blocked     403    blocking status
 ```
 
 ## 退出码

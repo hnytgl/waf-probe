@@ -54,6 +54,7 @@ class HttpSample:
 class ProbeResult:
     category: str
     payload: str
+    payload_value: str
     location: str
     verdict: str
     status_code: int | None
@@ -195,6 +196,7 @@ class WafProber:
         return ProbeResult(
             category=payload.category,
             payload=payload.name,
+            payload_value=payload.value,
             location=self.location,
             verdict=verdict,
             status_code=sample.status_code,

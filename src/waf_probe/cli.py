@@ -84,12 +84,13 @@ def print_report(report: ProbeReport) -> None:
     if baseline.error:
         print(f"Baseline error: {baseline.error}")
     print()
-    print(f"{'Category':<19} {'Payload':<24} {'Location':<11} {'Status':<11} {'HTTP':<6} Notes")
-    print("-" * 92)
+    print(f"{'Category':<19} {'Payload':<24} {'Payload Value':<34} {'Location':<11} {'Status':<11} {'HTTP':<6} Notes")
+    print("-" * 128)
     for item in report.results:
         status = item.status_code if item.status_code is not None else "-"
+        payload_value = item.payload_value if item.verdict == "passed" else ""
         print(
-            f"{item.category:<19} {item.payload:<24} {item.location:<11} "
+            f"{item.category:<19} {item.payload:<24} {payload_value:<34} {item.location:<11} "
             f"{item.verdict:<11} {status!s:<6} {item.notes}"
         )
 

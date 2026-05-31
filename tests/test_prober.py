@@ -1,4 +1,5 @@
-from waf_probe.prober import add_query_param, append_path_probe, length_changed
+from waf_probe.payloads import Payload
+from waf_probe.prober import HttpSample, WafProber, add_query_param, append_path_probe, length_changed
 
 
 def test_add_query_param_preserves_existing_params():
@@ -23,3 +24,15 @@ def test_append_path_probe_adds_encoded_path_segment():
 def test_append_path_probe_preserves_trailing_slash():
     url = append_path_probe("https://example.com", "admin/")
     assert url == "https://example.com/admin/"
+
+
+def test_classify_includes_payload_value():
+    payload = Payload("xss", "script_tag", "<script>alert(1)</script>", "Script tag XSS signature.")
+    prober = WafProber("https://example.com")
+    sample = HttpSample(status_code=200, length=1000, elapsed_ms=10)
+
+    result = prober._classify(payload, sample, sample)
+
+    assert result.verdict == "passed"
+    assert result.payload == "script_tag"
+    assert result.payload_value == "<script>alert(1)</script>"
